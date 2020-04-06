@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 import os
@@ -10,6 +10,7 @@ from functools import wraps
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 import logging
+from validate_email import validate_email
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -100,6 +101,11 @@ def registeration():
     firstName = request.json['firstName']
     lastName = request.json['lastName']
     email = request.json['email']
+    is_valid = validate_email(email, verify=True)
+    if not is_valid:
+        return jsonify({"msg": "email address is not valid"})
+
+
     password = generate_password_hash(request.json['password'] , method='sha256')
     public_id = str(uuid.uuid4())
     
@@ -158,17 +164,21 @@ def change_password():
     token = url_serializer.dumps(email, salt='thisisemailsalt')
     message = Message('Password Reset', sender=app.config.get('MAIL_USERNAME'),
                           recipients=[email])
-    link = url_for('reset_password_endpoint', token=token, _external=True)
+    link = url_for('reset_password', token=token, _external=True)
     message.body = 'To reset your password, visit the following link '+link
 
     mail.send(message)
 
     return jsonify({'msg':'A password reset link has been sent!'})
 
+@app.route('/reset_password/<token>')
+def reset_password(token):
+    return render_template('form.html', token=token)
 
-@app.route('/reset_password_endpoint/<token>', methods=['PUT'])
-def reset_password_endpoint(token):
-    new_password = request.json['new_password']
+@app.route('/reset_password_endpoint', methods=['POST'])
+def reset_password_endpoint():
+    new_password = request.form['new_password']
+    token = request.form['t']
 
     try:
         email = url_serializer.loads(token, salt='thisisemailsalt', max_age=3600)

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=
+    , initial-scale=1.0">
+    <title>Document</title>
+
+    <style>
+        .flex-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 90vh;
+            color: white;
+        }
+
+        .flex {
+            align-self: center;
+            padding: 1rem;
+        }
+
+        .inputClass {
+            border-top: 0px;
+            border-left: 0px;
+            border-right: 0px;
+            border-bottom: 2.3px solid white;
+            width: 100%;
+            outline: none;
+            font-size: 1.2rem;
+            background-color: black;
+            color: white;
+        }
+
+        .buttonClassDiv {
+            margin-top: 2.5rem;
+        }
+
+        .buttonclass {
+            padding: 1rem;
+            background-color: rgb(81, 81, 199);
+            border: 0px;
+            width: 100%;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+
+</head>
+
+<body style="background-color: black;">
+    <form action="/reset_password_endpoint" method="POST">
+        <div class="flex-container">
+
+            <div class="flex">
+                <div style="display: flex; justify-content: center;">
+                    <img src="{{ url_for('static', filename='img/logo.jpeg') }}" alt="safar logo"
+                        style=" height: 10rem;">
+                </div>
+                <h1 style="font-size: 2.4rem; margin-bottom: 3rem;">RESET PASSWORD</h1>
+                <input name="new_password" type="password" placeholder="New Password" class="inputClass" />
+                <input name="t" type="hidden" value="{{ token }}">
+                <br />
+                <div class="buttonClassDiv">
+                    <input type="submit" value="Change Password" class="buttonclass">
+                </div>
+            </div>
+        </div>
+    </form>
+</body>
+
+</html>
