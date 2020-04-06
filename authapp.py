@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 import os
@@ -7,6 +7,9 @@ from werkzeug.security import generate_password_hash , check_password_hash
 import jwt
 import datetime
 from functools import wraps
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+import logging
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -18,11 +21,26 @@ app.config['SECRET_KEY'] = "mysecretkey"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.Sqlite_authapp')
 app.config['SQLALCHEMY_TRACKER_MODIFICATION'] = False
 
+#Email Configuration..
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'helpforsafar@gmail.com'
+app.config['MAIL_PASSWORD'] = "merasafaracc"
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
 # db
 db = SQLAlchemy(app)
 
 #ma
 ma = Marshmallow(app)
+
+#mail
+mail = Mail(app)
+
+#URLSerializer
+url_serializer = URLSafeTimedSerializer(app.config.get('SECRET_KEY'))
+
 
 # token required function
 def token_required(f):
@@ -128,9 +146,45 @@ def login():
 
 
 # forget Password
-@app.route('/changepassword', methods=['Put'])
+@app.route('/forget_password', methods=['POST'])
 def change_password():
-    return jsonify({'msg':'change the password'})
+    email = request.json['email']
+    db_user = User.query.filter_by(email=email).first()
+
+    if not db_user:
+        return jsonify({'msg': 'You email address is invalid!'})
+
+    logging.log(logging.INFO, "User email is valid!")
+    token = url_serializer.dumps(email, salt='thisisemailsalt')
+    message = Message('Password Reset', sender=app.config.get('MAIL_USERNAME'),
+                          recipients=[email])
+    link = url_for('reset_password_endpoint', token=token, _external=True)
+    message.body = 'To reset your password, visit the following link '+link
+
+    mail.send(message)
+
+    return jsonify({'msg':'A password reset link has been sent!'})
+
+
+@app.route('/reset_password_endpoint/<token>', methods=['PUT'])
+def reset_password_endpoint(token):
+    new_password = request.json['new_password']
+
+    try:
+        email = url_serializer.loads(token, salt='thisisemailsalt', max_age=3600)
+        db_user = User.query.filter_by(email=email).first()
+        
+        db_user.password = generate_password_hash(new_password , method='sha256')
+        db.session.commit()
+        return jsonify({'msg': 'Password has been successfully changed!'}), 200
+
+
+
+    except SignatureExpired:
+        return jsonify({'msg': 'Url has been expired! Try a new one..'})
+
+    
+
 
 
 if __name__ == "__main__":
