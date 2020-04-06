@@ -4,9 +4,16 @@ from flask_marshmallow import Marshmallow
 import os
 import uuid
 from werkzeug.security import generate_password_hash , check_password_hash
+import jwt
+import datetime
+from functools import wraps
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+# secret key
+app.config['SECRET_KEY'] = "mysecretkey"
+
 # DataBase Configration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.Sqlite_authapp')
 app.config['SQLALCHEMY_TRACKER_MODIFICATION'] = False
@@ -16,6 +23,29 @@ db = SQLAlchemy(app)
 
 #ma
 ma = Marshmallow(app)
+
+# token required function
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+
+        if not token:
+            return jsonify({'message' : 'Token is missing!'}), 401
+
+        try: 
+            data = jwt.decode(token, app.config['SECRET_KEY'])
+            current_user = User.query.filter_by(public_id=data['public_id']).first()
+        except:
+            return jsonify({'message' : 'Token is invalid!'}), 401
+
+        return f(current_user, *args, **kwargs)
+
+    return decorated
+
 
 # User class/model
 class User(db.Model):
@@ -64,7 +94,8 @@ def registeration():
 
 #  show all users
 @app.route('/users', methods=['GET'])
-def show_all_users():
+@token_required
+def show_all_users(current_user):
     users = User.query.all()
     all_users = users_schema.dump(users)
     
@@ -73,7 +104,7 @@ def show_all_users():
 
 # get user by id (public_id)
 @app.route('/user/<public_id>', methods=['GET'])
-def get_user_by_id(public_id):
+def get_user_by_id(current_user , public_id):
     user = User.query.filter_by(public_id= public_id).first()
     return user_schema.dump(user)
 
@@ -85,17 +116,22 @@ def login():
 
     db_user = User.query.filter_by(email=entered_email).first()
 
-    if not db_user.email:
-        return jsonify({'msg': 'You entered wrong email'})
+    if not db_user:
+        return jsonify({'msg': 'You entered wrong email or password'})
 
-    if db_user.email == entered_email and check_password_hash(db_user.password , entered_password):
-        return jsonify({'msg': 'You are logged In'})
+    if db_user.email == entered_email and check_password_hash(db_user.password, entered_password):
+        token = jwt.encode({'public_id': db_user.public_id , 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)} , app.config['SECRET_KEY'])
+        return jsonify({'token': token.decode('UTF-8')})
     
     
     return jsonify({'msg': 'You entered wrong email or password'})
 
 
 # forget Password
+@app.route('/changepassword', methods=['Put'])
+def change_password():
+    return jsonify({'msg':'change the password'})
+
 
 if __name__ == "__main__":
     app.run(debug=True)
