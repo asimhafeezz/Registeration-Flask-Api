@@ -11,9 +11,13 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 import logging
 from validate_email import validate_email
+from flask_cors import CORS
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+# cors
+CORS(app)
 
 # secret key
 app.config['SECRET_KEY'] = "mysecretkey"
@@ -101,9 +105,17 @@ def registeration():
     firstName = request.json['firstName']
     lastName = request.json['lastName']
     email = request.json['email']
-    is_valid = validate_email(email, verify=True)
-    if not is_valid:
-        return jsonify({"msg": "email address is not valid"})
+
+    db_user = User.query.filter_by(email=email).first()
+    
+    if db_user:
+        return jsonify({'msg':'This email already exists'})
+    # else:
+    #     is_valid = validate_email(email, verify=True)
+    #     if not is_valid:
+    #         return jsonify({"msg": "email address is not valid"})
+        
+    
 
 
     password = generate_password_hash(request.json['password'] , method='sha256')
@@ -132,7 +144,7 @@ def get_user_by_id(current_user , public_id):
     user = User.query.filter_by(public_id= public_id).first()
     return user_schema.dump(user)
 
-
+#login
 @app.route('/login', methods=['POST'])
 def login():
     entered_email = request.json['email']
@@ -145,7 +157,7 @@ def login():
 
     if db_user.email == entered_email and check_password_hash(db_user.password, entered_password):
         token = jwt.encode({'public_id': db_user.public_id , 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)} , app.config['SECRET_KEY'])
-        return jsonify({'token': token.decode('UTF-8')})
+        return jsonify({'token': token.decode('UTF-8') , 'user_data' : user_schema.dump(db_user)})
     
     
     return jsonify({'msg': 'You entered wrong email or password'})
@@ -158,7 +170,7 @@ def change_password():
     db_user = User.query.filter_by(email=email).first()
 
     if not db_user:
-        return jsonify({'msg': 'You email address is invalid!'})
+        return jsonify({'errormsg': 'You email address is invalid!'})
 
     logging.log(logging.INFO, "User email is valid!")
     token = url_serializer.dumps(email, salt='thisisemailsalt')
@@ -169,7 +181,7 @@ def change_password():
 
     mail.send(message)
 
-    return jsonify({'msg':'A password reset link has been sent!'})
+    return jsonify({'validmsg':'A password reset link has been sent!'})
 
 @app.route('/reset_password/<token>')
 def reset_password(token):
@@ -186,12 +198,12 @@ def reset_password_endpoint():
         
         db_user.password = generate_password_hash(new_password , method='sha256')
         db.session.commit()
-        return jsonify({'msg': 'Password has been successfully changed!'}), 200
+        return jsonify({'validmsg': 'Password has been successfully changed!'}), 200
 
 
 
     except SignatureExpired:
-        return jsonify({'msg': 'Url has been expired! Try a new one..'})
+        return jsonify({'errormsg': 'Url has been expired! Try a new one..'})
 
     
 
