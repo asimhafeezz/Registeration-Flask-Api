@@ -1,5 +1,5 @@
 # fyp-backend
-Fyp Backend using Flask Resful Api.
+SignIn/SignUp Api with also forget password email service using Flask Resful services 
 ## Start Using Pipenv
 
 ``` bash
@@ -19,3 +19,5 @@ python authapp.py
 * GET     /user/:public_id
 * POST    /register
 * POST    /login
+* POST    /forget_password
+* POST    /reset_password/<token>
