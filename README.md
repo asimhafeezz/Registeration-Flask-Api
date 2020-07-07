@@ -1,4 +1,4 @@
-# fyp-backend
+# Registeration-Flask-Api
 SignIn/SignUp Api with also forget password email service using Flask Resful services 
 ## Start Using Pipenv
 
